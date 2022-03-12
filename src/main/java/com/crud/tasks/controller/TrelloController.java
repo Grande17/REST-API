@@ -9,6 +9,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("v1/trello")
@@ -20,7 +22,12 @@ public class TrelloController {
 
     @GetMapping("boards")
     public ResponseEntity<List<TrelloBoardDto>> getTrelloBoards() {
-        return ResponseEntity.ok(trelloClient.getTrelloBoards());
+        List<TrelloBoardDto> list = trelloClient.getTrelloBoards();
+        List<TrelloBoardDto> result = list.stream()
+                .filter(x-> Objects.nonNull(x.getName()) && Objects.nonNull(x.getId()))
+                .filter(x->x.getName().contains("Kodilla"))
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(result);
     }
     @PostMapping("cards")
     public ResponseEntity<CreatedTrelloCard> createTrelloCard(@RequestBody TrelloCardDto trelloCardDto) {

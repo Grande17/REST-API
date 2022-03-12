@@ -31,10 +31,7 @@ public class TrelloClient {
             TrelloBoardDto[] boardsResponse = restTemplate.getForObject(getUrl(), TrelloBoardDto[].class);
             return Optional.ofNullable(boardsResponse)
                     .map(Arrays::asList)
-                    .orElse(Collections.emptyList())
-                    .stream()
-                    .filter(p -> Objects.nonNull(p.getId()) && Objects.nonNull(p.getName()))
-                    .collect(Collectors.toList());
+                    .orElse(Collections.emptyList());
         } catch (RestClientException e) {
             LOGGER.error(e.getMessage(), e);
             return Collections.emptyList();
