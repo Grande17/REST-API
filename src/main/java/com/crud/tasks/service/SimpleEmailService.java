@@ -28,14 +28,12 @@ public class SimpleEmailService {
     }
 
     private SimpleMailMessage createMailMessage(final Mail mail) {
-        Optional<String> cc = Optional.ofNullable(mail.getToCc());
+
         SimpleMailMessage mailMessage = new SimpleMailMessage();
         mailMessage.setTo(mail.getMailTo());
         mailMessage.setSubject(mail.getSubject());
         mailMessage.setText(mail.getMessage());
-        if (cc.isPresent()){
-            mailMessage.setCc(mail.getToCc());
-        }
+        Optional.ofNullable(mail.getToCc()).ifPresent(mailMessage::setCc);
         return mailMessage;
     }
 }
