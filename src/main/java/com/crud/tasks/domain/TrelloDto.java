@@ -3,9 +3,13 @@ package com.crud.tasks.domain;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 @Data
 @JsonIgnoreProperties(ignoreUnknown = true)
+@Getter
+@NoArgsConstructor
 public class TrelloDto {
 
     @JsonProperty("board")
