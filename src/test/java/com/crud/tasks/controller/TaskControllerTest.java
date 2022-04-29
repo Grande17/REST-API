@@ -1,30 +1,33 @@
 package com.crud.tasks.controller;
 
 import com.crud.tasks.domain.Task;
+import com.crud.tasks.domain.TaskDto;
 import com.crud.tasks.mapper.TaskMapper;
 import com.crud.tasks.service.DbService;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.gson.Gson;
+import org.hamcrest.Matchers;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletResponse;
-import org.springframework.test.context.junit.jupiter.SpringExtension;
+import org.springframework.test.context.junit.jupiter.web.SpringJUnitWebConfig;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@ExtendWith(SpringExtension.class)
-@WebMvcTest(controllers = TaskController.class)
+@SpringJUnitWebConfig
+@WebMvcTest(TaskController.class)
 class TaskControllerTest {
 
     @Autowired
@@ -34,83 +37,100 @@ class TaskControllerTest {
     @MockBean
     private TaskMapper mapper;
 
-    private String mapToJson(Object obj) throws JsonProcessingException {
-        ObjectMapper objectMapper = new ObjectMapper();
-        return objectMapper.writeValueAsString(obj);
-    }
+
+
 
     @Test
-    void getTasks() throws Exception {
+    void getAllTasks() throws Exception {
         //given
-        Task task = new Task(1L,"title","content");
-        List<Task> tasks = List.of(task);
-        when(service.getAllTasks()).thenReturn(tasks);
-        //when
-        MockHttpServletResponse response = mockMvc.perform(get("/v1/tasks")
-                .accept(MediaType.APPLICATION_JSON))
-                .andReturn().getResponse();
-        //then
-        assertThat(response.getStatus()).isEqualTo(HttpStatus.OK.value());
+        List<TaskDto> tasks = List.of(new TaskDto(1L,"title","content"));
+        when(mapper.mapToTaskDtoList(anyList())).thenReturn(tasks);
+        //when & then
+        mockMvc
+                .perform(get("/v1/tasks")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$", Matchers.hasSize(1)))
+                .andExpect(jsonPath("$[0].id",Matchers.is(1)))
+                .andExpect(jsonPath("$[0].title",Matchers.is("title")))
+                .andExpect(jsonPath("$[0].content",Matchers.is("content")));
+    }
+    @Test
+    void fetchEmptyList() throws Exception {
+        //given
+        when(mapper.mapToTaskDtoList(anyList())).thenReturn(List.of());
+        //when & then
+        mockMvc
+                .perform(get("/v1/tasks")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$",Matchers.hasSize(0)));
     }
 
     @Test
     void getTask() throws Exception {
         //given
         Task task = new Task(1L,"title","content");
+        TaskDto dto = new TaskDto(1L,"title","content");
+        when(mapper.mapToTaskDto(task)).thenReturn(dto);
         when(service.getTask(1L)).thenReturn(task);
-        //when
-        MockHttpServletResponse response = mockMvc.perform(get("/v1/tasks/1")
-                        .accept(MediaType.APPLICATION_JSON))
-                .andReturn().getResponse();
-        //then
-        assertThat(response.getStatus()).isEqualTo(HttpStatus.OK.value());
+        //when & then
+        mockMvc
+                .perform(get("/v1/tasks/1")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id",Matchers.is(1)))
+                .andExpect(jsonPath("$.title",Matchers.is("title")))
+                .andExpect(jsonPath("$.content",Matchers.is("content")));
     }
 
     @Test
     void createTask() throws Exception {
         //given
         Task task = new Task(1L,"title","content");
-        when(service.saveTask(task)).thenReturn(task);
-        //when
-        String content = mapToJson(task);
-        MockHttpServletRequestBuilder request = post("/v1/tasks")
-                .contentType(MediaType.APPLICATION_JSON)
-                .accept(MediaType.APPLICATION_JSON)
-                .content(content);
+        TaskDto taskDto = new TaskDto(1L,"title","content");
 
-        MockHttpServletResponse response = mockMvc.perform(request)
-                .andReturn().getResponse();
-        //then
-        assertThat(response.getStatus()).isEqualTo(HttpStatus.OK.value());
+        when(mapper.mapToTask(any(TaskDto.class))).thenReturn(task);
+
+        Gson gson = new Gson();
+        String content = gson.toJson(taskDto);
+        //when
+        mockMvc.perform(post("/v1/tasks")
+                .contentType(MediaType.APPLICATION_JSON)
+                .characterEncoding("UTF-8")
+                .content(content))
+                .andExpect(status().isOk());
+
     }
 
     @Test
     void deleteTask() throws Exception {
         //given
+        Task task = new Task(1L,"title","content");
+        when(service.getTask(1L)).thenReturn(task);
         //when
-        MockHttpServletResponse response = mockMvc.perform(delete("/v1/tasks/1")
-                .contentType(MediaType.APPLICATION_JSON)
-                .accept(MediaType.APPLICATION_JSON))
-                .andReturn().getResponse();
-        //then
-        assertThat(response.getStatus()).isEqualTo(HttpStatus.OK.value());
-
+        mockMvc
+                .perform(delete("/v1/tasks/1")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk());
     }
 
     @Test
     void updateTask()throws Exception {
         //given
         Task task = new Task(1L,"title","content");
-        //when
-        String content = mapToJson(task);
+        TaskDto taskDto = new TaskDto(1L,"title","content");
 
-        MockHttpServletRequestBuilder request = put("/v1/tasks")
+        when(mapper.mapToTask(taskDto)).thenReturn(task);
+        when(service.saveTask(task)).thenReturn(task);
+        when(mapper.mapToTaskDto(task)).thenReturn(taskDto);
+
+        Gson gson = new Gson();
+        String content = gson.toJson(taskDto);
+        //when
+        mockMvc.perform(put("/v1/tasks")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(content);
-        MockHttpServletResponse response = mockMvc.perform(request)
-                .andReturn().getResponse();
-        //then
-        assertThat(response.getStatus()).isEqualTo(HttpStatus.OK.value());
+                .characterEncoding("UTF-8")
+                .content(content))
+                .andExpect(status().isOk());
 
     }
 }
